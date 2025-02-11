@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const Category = require("../models/category");
+const Device = require("../models/device");
 
 // 🔹 Criar categoria (POST /categories)
 router.post("/", async (req, res) => {
@@ -37,13 +38,30 @@ router.put("/:id", async (req, res) => {
     }
 });
 
-// 🔹 Deletar categoria (DELETE /categories/:id)
 router.delete("/:id", async (req, res) => {
-    const category = await Category.findByPk(req.params.id);
-    if (!category) return res.status(404).json({ message: "Categoria não encontrada" });
+    try {
+        const category = await Category.findByPk(req.params.id);
 
-    await category.destroy();
-    res.json({ message: "Categoria deletada com sucesso" });
+        if (!category) {
+            return res.status(404).json({ message: "Category not found" });
+        }
+
+        // 🔹 Verifica se há dispositivos vinculados à categoria
+        const devicesCount = await Device.count({ where: { categoryId: req.params.id } });
+        if (devicesCount > 0) {
+            return res.status(400).json({ message: "Cannot delete category. There are devices linked to it." });
+        }
+
+        // 🔹 Tenta excluir a categoria
+        await category.destroy();
+        return res.json({ message: "Category deleted successfully" });
+
+    } catch (error) {
+        console.error("❌ Error deleting category:", error); // Log mais detalhado
+        return res.status(500).json({ error: error.message || "An error occurred while deleting the category." });
+    }
 });
+
+
 
 module.exports = router;
